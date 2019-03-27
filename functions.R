@@ -25,8 +25,8 @@ var.hull <- function(rr, window = 500, qq = 0.99, importance)
 {
   require(distr)
   require(dplyr)
-  pi <- imp(q = importance, n = length(rr))
-  tibb <- tibble("xi" = rr, "pi" = pi)
+  pi <- imp(q = importance, n = window)
+  tibb <- tibble("xi" = rr, "pi" = rep(pi, length.out = length(rr)))
   xi <- rr
   impo <- imp(q = importance, n = window)
  
@@ -34,6 +34,7 @@ var.hull <- function(rr, window = 500, qq = 0.99, importance)
   for (i in 1:(length(rr) - (window - 1))) 
     {
       tib <- tibb[i:(i + window - 1), ]
+      tib[, 2] <- impo
       D <- DiscreteDistribution(supp = pull(tib[, 1]), prob = impo)
       qD <- q(D)
       quant <- qD(qq) #var
