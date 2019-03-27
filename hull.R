@@ -42,4 +42,8 @@ tib2 <- tib %>%
   filter(xi > q) %>%
   mutate(pi = pi/0.05)
 
+tib3 <- bind_rows(tib2, tib[which(tib$xi == q), ])
+tib3[5, 3] <- 1-sum(tib2$pi)
 #metoda rozkładów skośnych?
+
+dim(tib2)
