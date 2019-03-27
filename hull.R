@@ -35,15 +35,16 @@ pD <- p(D)
 qD <- q(D)  
 rD <- r(D)
 
-q <- qD(0.95) #var
+q <- qD(0.99) #var
 table(xi > q)
 
 tib2 <- tib %>%
   filter(xi > q) %>%
-  mutate(pi = pi/0.05)
+  mutate(pi = pi/0.01)
 
 tib3 <- bind_rows(tib2, tib[which(tib$xi == q), ])
-tib3[5, 3] <- 1-sum(tib2$pi)
+tib3[2, 3] <- 1-sum(tib2$pi)
 #metoda rozkładów skośnych?
 
-dim(tib2)
+es <- sum(tib3[, 2] * tib3[, 3])
+es/q

@@ -23,17 +23,18 @@ var <- function(rr, window = 500, qq = 0.99)
 
 var.hull <- function(rr, window = 500, qq = 0.99, importance)
 {
-  # require(distr)
-  # require(dplyr)
+  require(distr)
+  require(dplyr)
   pi <- imp(q = importance, n = length(rr))
-  tib <- tibble("xi" = rr, "pi" = pi)
+  tibb <- tibble("xi" = rr, "pi" = pi)
   xi <- rr
+  impo <- imp(q = importance, n = window)
  
   output <- tibble("i" = NA, "var" = NA, "es" = NA)
-  sapply(1:(length(rr) - (window - 1)), function(i)
+  for (i in 1:(length(rr) - (window - 1))) 
     {
-      tib <- tib[i:(i + window - 1)]
-      D <- DiscreteDistribution(supp = tib[, 1], prob = tib[, 2])
+      tib <- tibb[i:(i + window - 1), ]
+      D <- DiscreteDistribution(supp = pull(tib[, 1]), prob = impo)
       qD <- q(D)
       quant <- qD(qq) #var
       
@@ -44,10 +45,10 @@ var.hull <- function(rr, window = 500, qq = 0.99, importance)
       tib3 <- bind_rows(tib2, tib[which(tib$xi == quant), ])
       tib3[(dim(tib2)[1] + 1), 2] <- 1-sum(tib2$pi)
       
-      es <- tib3[, 1] * tib3[, 2]
+      es <- sum(tib3[, 1] * tib3[, 2])
       
       output <- bind_rows(output, tibble("i" = i, "var" = quant, "es" = es))
-    })
+    }
   
   output <- output[-1, ]
   return(output)
