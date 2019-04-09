@@ -3,16 +3,10 @@ returnrate.daily.log <- function(v)
 {
   v1 <- c(1, v)
   v <- c(v, 1)
-  
   v2 <- (v/v1)[-c(1, length(v/v1))]
-  
   return(log(v2) * 100)
 }
-#wagi dla metody hull'a
-imp <- function(q, n)
-{
-  sapply(1:n, function(i) ((1-q) * q^(n-i))/(1 - q^n))
-}
+
 #value at risk, rr- return rate, window- okno obserwowania, qq- kwantyl
 var <- function(rr, window = 500, qq = 0.99)
 {
@@ -32,6 +26,11 @@ cval <- function(rates, vvar, window)
 
 var.hull <- function(rr, window = 500, qq = 0.99, importance)
 {
+  #wagi dla metody hull'a
+  imp <- function(q, n)
+  {
+    sapply(1:n, function(i) ((1-q) * q^(n-i))/(1 - q^n))
+  }
   require(distr)
   require(dplyr)
   pi <- imp(q = importance, n = window)
@@ -40,7 +39,7 @@ var.hull <- function(rr, window = 500, qq = 0.99, importance)
   impo <- imp(q = importance, n = window)
  
   output <- tibble("i" = NA, "var" = NA, "es" = NA)
-  for (i in 1:(length(rr) - (window - 1))) 
+  for (i in 1:(length(rr) - (window))) 
     {
       tib <- tibb[i:(i + window - 1), ]
       tib[, 2] <- impo
@@ -87,25 +86,19 @@ var.boot <- function(rr, window = 500, qq = 0.99, n = 20, s = 1000)
   return(var.es.output)
 }
 
+kupiec.bt <- function(rr, var, window = 500)
+{
+  kbt <- sapply(1:(length(var)-window), function(i) sum(var[i:(i+window-1)] < rr[(i+window-1):(i+ 2 * window - 2)]))
+  table(kbt)
+}
 
-# 
-# 
-# a <- sapply(1:10, function(x) c("a" = x, "b" = x*10))
-# 
-# l <- list("a" = a[1, ], "b" = a[2, ])
-# str(a)
-# m <- mapply(mean, l)
-# t(as.data.frame(m))
-# 
-# 
-# 
-# xx <- list(1:10, data.frame(1:10, 11:20))
-# xx[[1]]
-# xa <- list
-# c(xa, xx)
-# 
-# 
-# 
-# 
+kupiec.bt2 <- function(rr, var, window = 500)
+{
+  kbt <- sapply(1:(length(var)), function(i) sum(var[i] < rr[(i):(i+ window - 1)]))
+  kbt <- table(kbt)
+  s <- sum(kbt(which(as.numeric(names(kbt)) >= 10)))/sum(kbt)
+  return(s)
+}
 
 
+kupiec.bt2(rr, vvar)
