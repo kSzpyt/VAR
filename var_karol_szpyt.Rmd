@@ -1,0 +1,173 @@
+---
+title: "Value at Risk oraz Estimated Shortfall"
+author: "Karol Szpyt"
+date: "7 kwietnia 2019"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 2
+---
+#Wstęp  
+
+##Przegląd danych  
+
+Poniższa praca ma na celu pokazanie różnych metod liczenia **value at risk** oraz **estimated shortfall**. Wyliczenia oparte będą o autentyczne dane historyczne- kursy walut. Wybrane zostaną 3 waluty- **dolar amerykański**, **hrywna ukraińska** oraz **frank szwajcarski**.  
+Do dalszych obliczeń potrzebne będą stopy zwrotu. Użyte zostaną logarytmiczne, dzienne stopy zwrotu, podane wzorem: ${\Large S_n = ln(\frac{w_n}{w_{n-1}})}$, gdzie $S_n$ to stopa zwrotu w n-tym dniu, a $w_n$ to wartość waluty w n-tym dniu. 
+  
+Wykresy wahań kursów walut:
+```{r include=FALSE}
+library(kableExtra)
+library(lubridate)
+library(ggplot2)
+library(gridExtra)
+library(dplyr)
+data <- read.csv("waluty_2012_2018.csv", dec = ".", sep = ";")
+data$data <- ymd(data$data)
+```
+
+```{r echo=FALSE, fig.align='center', out.height='420%', out.width='240%'}
+w.usd <- data%>%
+  ggplot(aes(x = data)) +
+  geom_line(aes(y = X1USD)) + 
+  ggtitle(label = "USD")
+
+w.uah <- data%>%
+  ggplot(aes(x = data)) +
+  geom_line(aes(y = X1UAH)) + 
+  ggtitle(label = "UAH")
+
+w.chf <- data%>%
+  ggplot(aes(x = data)) +
+  geom_line(aes(y = X1CHF)) + 
+  ggtitle(label = "CHF")
+
+grid.arrange(arrangeGrob(w.usd, w.uah, w.chf))
+
+```
+
+Funckja do wyliczania dziennych stóp zwrotu (w procentach):
+```{r}
+returnrate.daily.log <- function(v)
+{
+  v1 <- c(1, v)
+  v <- c(v, 1)
+  v2 <- (v/v1)[-c(1, length(v/v1))]
+  return(log(v2) * 100)
+}
+```
+
+##Stopy zwrotu  
+
+Ze stóp zwrotu tworzona jest funkcja straty poprzez pomnożenie wartości przez $-1$
+```{r}
+rr.usd <- -returnrate.daily.log(data$X1USD)
+rr.uah <- -returnrate.daily.log(data$X1UAH)
+rr.chf <- -returnrate.daily.log(data$X1CHF)
+```
+Pierwsze 5 stóp zwrotu
+```{r echo=FALSE}
+rr.tib <- tibble("date" = data[-1, 1], "rr.usd" = rr.usd, "rr.uah" = rr.uah, "rr.chf" = rr.chf)
+head(rr.tib) %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("stripped", "hover", "condensed", "responsive"))
+```
+Oraz wykresy poszczególnych stóp zworów.
+```{r echo=FALSE, fig.align='center', out.height='420%', out.width='240%'}
+g.usd <- rr.tib %>%
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = rr.usd)) + 
+  ggtitle(label = "USD")
+
+g.uah <- rr.tib %>%
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = rr.uah)) + 
+  ggtitle(label = "UAH")
+
+g.chf <- rr.tib %>%
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = rr.chf)) + 
+  ggtitle(label = "CHF")
+
+grid.arrange(arrangeGrob(g.usd, g.uah, g.chf))
+
+```
+
+#Value at Risk oraz Estimated Shortfall  
+
+##Teoria
+
+###VAR
+${\alpha  VAR = x}$ oznacza, że jest $1- \alpha$ szans na stratę nie mniej niż $x$, gdzie $x$ jest procentem wartości portfolio.
+
+> 99% value at risk wynoszący 3% oznacza, że <br /> jest 1% szans na stratę nie mniej niż 3% wartości potrfela
+
+###ES  
+${\alpha  ES = x}$ oznacza, że w $1- \alpha$ najgorszych zwrotach, średnia strata wyniesie $x$, gdzie $x$ jest procentem wartości portfolio.
+
+> 99% estimated shortfall wynoszący 5% oznacza, że <br /> w 1% najgorszych zwrotów strata wyniesie 5% wartości potrfela
+
+###Metody liczenia VAR oraz ES
+
+ * **Metoda historyczna**- dla każdego okna obserwacji wyliczany jest odpowiedni kwantyl, będący jednocześnie wartością var, a estimated shortfall jako średnia wartości większych od poszczególnych kwantyli 
+ * **Meotda historyczna podejście Hulla (z wagami)**- podobne podejście jak w metodzie historycznej, ale z uwględnieniem starzenia się danych. Nowsze dawne dostają większą wagę, tym samym są ważniejsze do obliczeń.
+ * **Metoda bootstrap**- ponownie, podobne podjeście jak w metodzie hisotycznej. Tym razem dla każdego okna losowana (ze zwracaniem) jest określona liczba wartości pochodzących z danego okna i na podstawie takiej próbki liczony jest var i es tak jak w metodzie historycznej
+ 
+#Metoda historyczna
+
+Funckja licząca VAR- **rr**- stopy zwrotu, **window**- szerokość okna, **qq**- kwantyls
+```{r}
+var.hist <- function(rr, window = 500, qq = 0.99)
+{
+    v <- sapply(1:(length(rr) - window), function(i) quantile(rr[i:(i + (window - 1))], probs = qq))
+    names(v) <- NULL
+    return(v)
+}
+```
+Funkcja licząca ES: **rates**- stopy zwrotu, **vvar**- wyliczony var, **window**- szerokość okna
+```{r}
+cval.hist <- function(rates, vvar, window)
+{
+  sapply(1:length(vvar), function(i) 
+  {
+    mean(rates[which(rates[i:(i+499)] > vvar[i]) + (i-1)])#i-1 bo wchich za każdym razem traktuje indeksowanie od jednego
+  })
+}
+```
+
+```{r echo=FALSE}
+var.hist.usd <- var.hist(rr.usd, window = 500, qq = 0.99)
+var.hist.uah <- var.hist(rr.uah, window = 500, qq = 0.99)
+var.hist.chf <- var.hist(rr.chf, window = 500, qq = 0.99)
+
+es.hist.usd <- cval.hist(rr.usd, var.hist.usd, window = 500)
+es.hist.uah <- cval.hist(rr.uah, var.hist.uah, window = 500)
+es.hist.chf <- cval.hist(rr.chf, var.hist.chf, window = 500)
+
+
+usd.tib <- tibble("date" = data[501:length(rr.usd), 1], "var" = var.hist.usd, "es" = es.hist.usd)
+uah.tib <- tibble("date" = data[501:length(rr.usd), 1], "var" = var.hist.uah, "es" = es.hist.uah)
+chf.tib <- tibble("date" = data[501:length(rr.usd), 1], "var" = var.hist.chf, "es" = es.hist.chf)
+```
+
+```{r echo=FALSE, fig.align='center'}
+usd.tib %>%
+  ggplot(aes(x = date)) + 
+  geom_line(aes(y = var, col = "var")) + 
+  geom_line(aes(y = es, col = "es")) + 
+  ggtitle(label = "USD")
+
+uah.tib %>%
+  ggplot(aes(x = date)) + 
+  geom_line(aes(y = var, col = "var")) + 
+  geom_line(aes(y = es, col = "es")) + 
+  ggtitle(label = "UAH")
+
+chf.tib %>%
+  ggplot(aes(x = date)) + 
+  geom_line(aes(y = var, col = "var")) + 
+  geom_line(aes(y = es, col = "es")) + 
+  ggtitle(label = "CHF")
+```
+
+
+

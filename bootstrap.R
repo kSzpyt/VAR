@@ -10,5 +10,6 @@ rr <- -returnrate.daily.log((data$X1USD))
 xd <- var.boot(rr, n = 1000)
 
 plot(xd[, 1], type = "l")
+lines(xd[, 2], col = "red")
 
 kupiec.bt2(rr, xd[, 1])

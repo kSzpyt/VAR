@@ -24,3 +24,11 @@ table(a)
 
 a <- c(1, 2, 2, 2, 3, 3, 6, 6, 1)
 table(a)
+
+
+
+
+
+sum(rr[501:length(rr)] > vvar)
+length(rr[500:length(rr)])
+1763-500

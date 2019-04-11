@@ -8,15 +8,15 @@ returnrate.daily.log <- function(v)
 }
 
 #value at risk, rr- return rate, window- okno obserwowania, qq- kwantyl
-var <- function(rr, window = 500, qq = 0.99)
+var.hist <- function(rr, window = 500, qq = 0.99)
 {
-    v <- sapply(1:(length(rr) - (window - 1)), function(i) quantile(rr[i:(i + (window - 1))], probs = qq))
+    v <- sapply(1:(length(rr) - window), function(i) quantile(rr[i:(i + (window - 1))], probs = qq))
     names(v) <- NULL
     return(v)
 }
 
 #estimated shotfall/ conditional value
-cval <- function(rates, vvar, window)
+cval,hist <- function(rates, vvar, window)
 {
   sapply(1:length(vvar), function(i) 
   {
@@ -35,15 +35,15 @@ var.hull <- function(rr, window = 500, qq = 0.99, importance)
   require(dplyr)
   pi <- imp(q = importance, n = window)
   tibb <- tibble("xi" = rr, "pi" = rep(pi, length.out = length(rr)))
-  xi <- rr
-  impo <- imp(q = importance, n = window)
+  # xi <- rr
+  # impo <- imp(q = importance, n = window)
  
   output <- tibble("i" = NA, "var" = NA, "es" = NA)
-  for (i in 1:(length(rr) - (window))) 
+  for (i in 1:(length(rr) - window)) 
     {
       tib <- tibb[i:(i + window - 1), ]
-      tib[, 2] <- impo
-      D <- DiscreteDistribution(supp = pull(tib[, 1]), prob = impo)
+      tib[, 2] <- pi
+      D <- DiscreteDistribution(supp = pull(tib[, 1]), prob = pi)
       qD <- q(D)
       quant <- qD(qq) #var
       
@@ -67,7 +67,7 @@ var.boot <- function(rr, window = 500, qq = 0.99, n = 20, s = 1000)
 {
   var.es.output <- data.frame("var" = NA, "es" = NA)
   
-  for (i in 1:(length(rr) - (window - 1))) 
+  for (i in 1:(length(rr) - window)) 
   {
     foo.window <- rr[i:(i+window-1)]
     
@@ -94,11 +94,26 @@ kupiec.bt <- function(rr, var, window = 500)
 
 kupiec.bt2 <- function(rr, var, window = 500)
 {
-  kbt <- sapply(1:(length(var)), function(i) sum(var[i] < rr[(i):(i+ window - 1)]))
-  kbt <- table(kbt)
-  s <- sum(kbt(which(as.numeric(names(kbt)) >= 10)))/sum(kbt)
-  return(s)
+  kbt <- sapply(1:(length(var)), function(i) sum(var[i] < rr[(i):(i+ 500 - 1)]))
+  k <- table(kbt)
+  #s <- sum(kbt[which(as.numeric(names(kbt)) < 10)])/sum(kbt)
+  return(k)
+}
+
+ewma <- function(rr, lam = 0.94)
+{
+  
+  sigg <- function(rr, sig1, lam = 0.94) sqrt(lam * sig1^2 + (1-lam) * rr^2)
+  
+  sigvec <- sd(rr)
+  for (i in 2:(length(rr)+1)) 
+  {
+    sigvec <- c(sigvec,
+                foo(rr[i-1], sigvec[i-1], 0.94))
+  }
+  
+  scen <- sapply(1:length(rr), function(i) rr[i] * sigvec[length(sigvec)]/sigvec[i])
+  
 }
 
 
-kupiec.bt2(rr, vvar)
