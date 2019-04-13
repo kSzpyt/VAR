@@ -16,7 +16,7 @@ var.hist <- function(rr, window = 500, qq = 0.99)
 }
 
 #estimated shotfall/ conditional value
-cval,hist <- function(rates, vvar, window)
+cval.hist <- function(rates, vvar, window)
 {
   sapply(1:length(vvar), function(i) 
   {
@@ -86,18 +86,18 @@ var.boot <- function(rr, window = 500, qq = 0.99, n = 20, s = 1000)
   return(var.es.output)
 }
 
+
 kupiec.bt <- function(rr, var, window = 500)
 {
-  kbt <- sapply(1:(length(var)-window), function(i) sum(var[i:(i+window-1)] < rr[(i+window-1):(i+ 2 * window - 2)]))
-  table(kbt)
+  kbt <- sapply(1:(length(var)), function(i) sum(var[i] < rr[(i):(i+ window - 1)]))
+  k <- table(kbt)
+  s <- sum(k[which(as.numeric(names(k)) < 10 & as.numeric(names(k)) > 0)])/length(var)
+  return(s)
 }
 
-kupiec.bt2 <- function(rr, var, window = 500)
+realvalue.bt <- function(rr, var, window = 500)
 {
-  kbt <- sapply(1:(length(var)), function(i) sum(var[i] < rr[(i):(i+ 500 - 1)]))
-  k <- table(kbt)
-  #s <- sum(kbt[which(as.numeric(names(kbt)) < 10)])/sum(kbt)
-  return(k)
+  sum(rr[(window + 1):length(rr)] < var)/length(rr[(window + 1):length(rr)])
 }
 
 ewma <- function(rr, lam = 0.94)
@@ -109,11 +109,17 @@ ewma <- function(rr, lam = 0.94)
   for (i in 2:(length(rr)+1)) 
   {
     sigvec <- c(sigvec,
-                foo(rr[i-1], sigvec[i-1], 0.94))
+                sigg(rr[i-1], sigvec[i-1], 0.94))
   }
   
   scen <- sapply(1:length(rr), function(i) rr[i] * sigvec[length(sigvec)]/sigvec[i])
   
+  var <- var.hist(scen, 500, 0.99)
+  return(var)
 }
 
+kupiec.bt2(rr, vvar)
 
+kbt <- sapply(1:(length(vvar)), function(i) sum(vvar[i] < rr[(i):(i+ 500 - 1)]))
+k <- table(kbt)
+s <- sum(k[which(as.numeric(names(k)) < 10)])/length(vvar)

@@ -15,7 +15,7 @@ Poniższa praca ma na celu pokazanie różnych metod liczenia **value at risk** 
 Do dalszych obliczeń potrzebne będą stopy zwrotu. Użyte zostaną logarytmiczne, dzienne stopy zwrotu, podane wzorem: ${\Large S_n = ln(\frac{w_n}{w_{n-1}})}$, gdzie $S_n$ to stopa zwrotu w n-tym dniu, a $w_n$ to wartość waluty w n-tym dniu. 
   
 Wykresy wahań kursów walut:
-```{r include=FALSE}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 library(kableExtra)
 library(lubridate)
 library(ggplot2)
@@ -25,7 +25,7 @@ data <- read.csv("waluty_2012_2018.csv", dec = ".", sep = ";")
 data$data <- ymd(data$data)
 ```
 
-```{r echo=FALSE, fig.align='center', out.height='420%', out.width='240%'}
+```{r echo=FALSE, fig.align='center', fig.height=7, fig.width=10}
 w.usd <- data%>%
   ggplot(aes(x = data)) +
   geom_line(aes(y = X1USD)) + 
@@ -41,10 +41,43 @@ w.chf <- data%>%
   geom_line(aes(y = X1CHF)) + 
   ggtitle(label = "CHF")
 
-grid.arrange(arrangeGrob(w.usd, w.uah, w.chf))
+# grid.arrange(arrangeGrob(w.usd, w.uah, w.chf))
+grid.arrange(w.usd, w.uah, w.chf)
 
 ```
+```{r echo=FALSE}
+a <- as.matrix(summary(data$X1USD))
+b <- as.matrix(summary(data$X1UAH))
+c <- as.matrix(summary(data$X1CHF))
 
+pd <- cbind("USD" = a, "UAH" = b, "CHF" = c)
+colnames(pd) <- c("USD", "UAH", "CHF")
+rn <- rownames(pd)
+
+pd <- rbind(pd, t(data.frame("wsp zm." = c(sd(data$X1USD)/mean(data$X1USD),
+sd(data$X1UAH)/mean(data$X1UAH),
+sd(data$X1CHF)/mean(data$X1CHF)))))
+
+pd %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("stripped", "hover", "condensed", "responsive")) %>%
+  add_header_above(c("Statystyki Opisowe" = 4, " " = 0))
+
+
+cor.mat <- cor(data.frame(data$X1USD, data$X1CHF, data$X1UAH))
+colnames(cor.mat) <- c("USD", "UAH", "CHF")
+rownames(cor.mat) <- c("USD", "UAH", "CHF")
+cor.mat %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("stripped", "hover", "condensed", "responsive")) %>%
+  add_header_above(c("Macierz korelacji" = 4, " " = 0))
+```
+Szybki rzut oka na wykresy, podstawowe statystyki opisowe oraz współczynnik zmienności pozwala na przypuszczenie, że dolar oraz frank są (w przeciwieństwie do hrywny) stabilnymi walutami.
+Na wykresach widać również korelacje międzie wszystimi walutami- Dodatnią bardzo silną na poziomie 95% pomiędzy dolarem a frankiem, oraz ujemne na poziomie 73-75% pomiędzy hrywną a pozostałymi dwoma walutami
+
+
+##Stopy zwrotu  
+  
 Funckja do wyliczania dziennych stóp zwrotu (w procentach):
 ```{r}
 returnrate.daily.log <- function(v)
@@ -55,9 +88,6 @@ returnrate.daily.log <- function(v)
   return(log(v2) * 100)
 }
 ```
-
-##Stopy zwrotu  
-
 Ze stóp zwrotu tworzona jest funkcja straty poprzez pomnożenie wartości przez $-1$
 ```{r}
 rr.usd <- -returnrate.daily.log(data$X1USD)
@@ -71,8 +101,8 @@ head(rr.tib) %>%
   kable() %>%
   kable_styling(bootstrap_options = c("stripped", "hover", "condensed", "responsive"))
 ```
-Oraz wykresy poszczególnych stóp zworów.
-```{r echo=FALSE, fig.align='center', out.height='420%', out.width='240%'}
+Oraz wykresy poszczególnych stóp zworów. Dla przypomnienia, dodatnie wartości to straty.
+```{r echo=FALSE, fig.align='center', fig.height=7, fig.width=10}
 g.usd <- rr.tib %>%
   ggplot(aes(x = date)) +
   geom_line(aes(y = rr.usd)) + 
@@ -91,6 +121,20 @@ g.chf <- rr.tib %>%
 grid.arrange(arrangeGrob(g.usd, g.uah, g.chf))
 
 ```
+```{r echo=FALSE}
+a <- as.matrix(summary(rr.usd))
+b <- as.matrix(summary(rr.uah))
+c <- as.matrix(summary(rr.chf))
+
+pd <- cbind("USD" = a, "UAH" = b, "CHF" = c)
+colnames(pd) <- c("USD", "UAH", "CHF")
+
+pd %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("stripped", "hover", "condensed", "responsive")) %>%
+  add_header_above(c("Statystyki Opisowe" = 4, " " = 0))
+```  
+Z wykresów oraz podstawowych statystyk opisowych można przypuszczać, że (tu bez niespodzianek) najniebezpieczniejszą walutą jest hrywna ukraińska z maksymalną stratą rzędu ponad 40%
 
 #Value at Risk oraz Estimated Shortfall  
 
@@ -106,7 +150,7 @@ ${\alpha  ES = x}$ oznacza, że w $1- \alpha$ najgorszych zwrotach, średnia str
 
 > 99% estimated shortfall wynoszący 5% oznacza, że <br /> w 1% najgorszych zwrotów strata wyniesie 5% wartości potrfela
 
-###Metody liczenia VAR oraz ES
+###Metody liczenia VAR oraz ES (użyte w pracy)
 
  * **Metoda historyczna**- dla każdego okna obserwacji wyliczany jest odpowiedni kwantyl, będący jednocześnie wartością var, a estimated shortfall jako średnia wartości większych od poszczególnych kwantyli 
  * **Meotda historyczna podejście Hulla (z wagami)**- podobne podejście jak w metodzie historycznej, ale z uwględnieniem starzenia się danych. Nowsze dawne dostają większą wagę, tym samym są ważniejsze do obliczeń.
@@ -114,7 +158,7 @@ ${\alpha  ES = x}$ oznacza, że w $1- \alpha$ najgorszych zwrotach, średnia str
  
 #Metoda historyczna
 
-Funckja licząca VAR- **rr**- stopy zwrotu, **window**- szerokość okna, **qq**- kwantyls
+Funckja licząca VAR- **rr**- stopy zwrotu, **window**- szerokość okna, **qq**- kwantyl
 ```{r}
 var.hist <- function(rr, window = 500, qq = 0.99)
 {
@@ -133,7 +177,7 @@ cval.hist <- function(rates, vvar, window)
   })
 }
 ```
-
+Obydwie funkcje zwracają wektor wartości o długości wektora stóp zwrotu - długość okna (w tej pracy- 500)
 ```{r echo=FALSE}
 var.hist.usd <- var.hist(rr.usd, window = 500, qq = 0.99)
 var.hist.uah <- var.hist(rr.uah, window = 500, qq = 0.99)
@@ -148,26 +192,329 @@ usd.tib <- tibble("date" = data[501:length(rr.usd), 1], "var" = var.hist.usd, "e
 uah.tib <- tibble("date" = data[501:length(rr.usd), 1], "var" = var.hist.uah, "es" = es.hist.uah)
 chf.tib <- tibble("date" = data[501:length(rr.usd), 1], "var" = var.hist.chf, "es" = es.hist.chf)
 ```
-
-```{r echo=FALSE, fig.align='center'}
-usd.tib %>%
+Poniżej output dla powyższych funkcii dla każdej z walut z argumentami domyślnymi
+```{r echo=FALSE, fig.align='center', fig.height=5, fig.width=12}
+a <- usd.tib %>%
   ggplot(aes(x = date)) + 
   geom_line(aes(y = var, col = "var")) + 
   geom_line(aes(y = es, col = "es")) + 
   ggtitle(label = "USD")
 
-uah.tib %>%
+b <- uah.tib %>%
   ggplot(aes(x = date)) + 
   geom_line(aes(y = var, col = "var")) + 
   geom_line(aes(y = es, col = "es")) + 
   ggtitle(label = "UAH")
 
-chf.tib %>%
+c <- chf.tib %>%
   ggplot(aes(x = date)) + 
   geom_line(aes(y = var, col = "var")) + 
   geom_line(aes(y = es, col = "es")) + 
   ggtitle(label = "CHF")
+
+grid.arrange(a, b, ncol = 2)
+
 ```
+```{r echo=FALSE, fig.align='center', fig.height=4, fig.width=5}
+c
+```
+
+Z wykresu można wyczytać, że VAR dla dolara waha się mniej więcej od wartości 1.25 do 1.75. Podobnie jest dla franka z wahaniami od 1.00 do 1.50. ES dla obu walut raczej nie przekracza poziomu 2%.  
+Hrywna natomiast jest "poza skalą" w porównaniu do dolara czy franka. Var na poziomie ponad 10%. a ES ponad 20%. Bardzo dobrze obrazuje to problem ukraińsko-rosyjski, który po walutach wnioskując, już się wycisza.  
+Dla ukazania skali różnic pomiędzy walutami, poniżej znajdują się one na jednym wykresie.  
+```{r echo=FALSE}
+chf.tib %>%
+  ggplot(aes(x = date)) + 
+  geom_line(aes(y = usd.tib$var, col = "USD")) + 
+  geom_line(aes(y = uah.tib$var, col = "UAH")) + 
+  geom_line(aes(y = chf.tib$var, col = "CHF")) + 
+  ggtitle(label = "Porównanie VAR")
+```
+Jak widać różnice są ogromne.
+
+#Metoda historyczna z wagami  
+  
+Funkcja licząca **VAR** oraz **ES**.  
+**rr**- stopy zwrotu, **window**- szerokość okna, **qq**- kwantyl, **importance**- parametr regulujący rozkład wag (domyślnie ustawiony na wartość 0.99)
+```{r message=FALSE, warning=FALSE}
+var.hull <- function(rr, window = 500, qq = 0.99, importance = 0.99)
+{
+  #wagi dla metody hull'a
+  imp <- function(q, n)
+  {
+    sapply(1:n, function(i) ((1-q) * q^(n-i))/(1 - q^n))
+  }
+  require(distr)
+  require(dplyr)
+  pi <- imp(q = importance, n = window)
+  tibb <- tibble("xi" = rr, "pi" = rep(pi, length.out = length(rr)))
+ 
+  output <- tibble("i" = NA, "var" = NA, "es" = NA)
+  for (i in 1:(length(rr) - window)) 
+    {
+      tib <- tibb[i:(i + window - 1), ]
+      tib[, 2] <- pi
+      D <- DiscreteDistribution(supp = pull(tib[, 1]), prob = pi)
+      qD <- q(D)
+      quant <- qD(qq) #var
+      
+      tib2 <- tib %>%
+        filter(xi > quant) %>%
+        mutate(pi = pi/(1 - qq))
+      
+      tib3 <- bind_rows(tib2, tib[which(tib$xi == quant), ])
+      tib3[(dim(tib2)[1] + 1), 2] <- 1-sum(tib2$pi)
+      
+      es <- sum(tib3[, 1] * tib3[, 2])
+      
+      output <- bind_rows(output, tibble("i" = i, "var" = quant, "es" = es))
+    }
+  
+  output <- output[-1, ]
+  return(output)
+}
+```
+Funkcja zwraca numer scenariusza, var dla danego scenariusza oraz es dla danego scenariusza jako ramkę danych.  
+
+Poniżej output dla powyższej funkcji dla każdej z walut z argumentami domyślnymi
+```{r echo=FALSE, fig.align='center', fig.height=5, fig.width=12, message=FALSE, warning=FALSE}
+var.hull.usd <- var.hull(rr.usd, 500, 0.99, 0.99)
+var.hull.uah <- var.hull(rr.uah, 500, 0.99, 0.99)
+var.hull.chf <- var.hull(rr.chf, 500, 0.99, 0.99)
+
+var.hull.usd[, 1] <- data$data[501:(500 + dim(var.hull.usd)[1])]
+var.hull.usd <- bind_cols(var.hull.usd, "rr" = rr.usd[501:(500 + dim(var.hull.usd)[1])])
+
+var.hull.uah[, 1] <- data$data[501:(500 + dim(var.hull.uah)[1])]
+var.hull.uah <- bind_cols(var.hull.uah, "rr" = rr.uah[501:(500 + dim(var.hull.usd)[1])])
+
+var.hull.chf[, 1] <- data$data[501:(500 + dim(var.hull.chf)[1])]
+var.hull.chf <- bind_cols(var.hull.chf, "rr" = rr.chf[501:(500 + dim(var.hull.chf)[1])])
+
+a <- var.hull.usd %>%
+  ggplot(aes(x = i)) +
+  geom_line(aes(y = var, col = "var")) +
+  geom_line(aes(y = es, col = "es")) + 
+  ggtitle(label = "USD")
+
+b <- var.hull.uah %>%
+  ggplot(aes(x = i)) +
+  geom_line(aes(y = var, col = "var")) +
+  geom_line(aes(y = es, col = "es")) + 
+  ggtitle(label = "UAH")
+
+c <- var.hull.chf %>%
+  ggplot(aes(x = i)) +
+  geom_line(aes(y = var, col = "var")) +
+  geom_line(aes(y = es, col = "es")) + 
+  ggtitle(label = "CHF")
+
+grid.arrange(a, b, ncol = 2)
+
+```
+
+```{r echo=FALSE, fig.align='center', fig.height=4, fig.width=5}
+c
+```
+Komentarz do tych wykresów w zasadzie jest podobny jak w klasycznej metodzie historycznej. Od razu jednak widać, że wykresy znacząco różnią się od tych z poprzedniej metody. Uwzględnienie starzenia się danych daje zupełnie inne spojrzenie na problem. Lepiej pokazane będzie to w podsumowaniu, gdzie wszystkie metody zostaną zestawione oraz porównane na jednym wykresie. 
+Ponownie, dla ukazania skali różnic- wykres z wartościami VAR wszystkich walut.  
+
+```{r echo=FALSE}
+var.hull.usd %>%
+  ggplot(aes(x = i)) + 
+  geom_line(aes(y = var.hull.usd$var, col = "USD")) + 
+  geom_line(aes(y = var.hull.uah$var, col = "UAH")) + 
+  geom_line(aes(y = var.hull.chf$var, col = "CHF")) + 
+  ggtitle(label = "Porównanie VAR")
+```  
+
+#Metoda bootstrap  
+
+Funckja:  
+**rr**- stopy zwrotu, **window**- szerokość okna, **qq**- kwantyl, **n**- liczba symualcji na jedno okno, **s**- liczba elementów do wylosowania)
+```{r}
+var.boot <- function(rr, window = 500, qq = 0.99, n = 20, s = 600)
+{
+  var.es.output <- data.frame("var" = NA, "es" = NA)
+  
+  for (i in 1:(length(rr) - window)) 
+  {
+    foo.window <- rr[i:(i+window-1)]
+    
+    la.output <- sapply(1:n, function(x)
+      {
+        foo.sample <- sample(foo.window, s, replace = TRUE)
+        var <- quantile(foo.sample, qq)
+        es <- mean(foo.sample[which(foo.sample > var)])
+        return(c(var, es))
+      })
+    var.es <- list("var" = la.output[1, ], "es" = la.output[2, ])
+    var.es.output <- rbind(var.es.output, t(as.data.frame(mapply(mean, var.es))))
+  }
+  rownames(var.es.output) <- NULL
+  var.es.output <- var.es.output[-1, ]
+  return(var.es.output)
+}
+```
+Funkcja zwraca ramkę danych zawierającą wyliczony VAR oraz ES dla poszczególnych okien.
+  
+Poniżej output dla powyższej funkcji dla każdej z walut z argumentami domyślnymi
+```{r echo=FALSE, fig.align='center', fig.height=5, fig.width=12, message=FALSE, warning=FALSE, paged.print=TRUE}
+var.boot.usd <- var.boot(rr.usd, 500, 0.99, 1000, 1000)
+var.boot.uah <- var.boot(rr.uah, 500, 0.99, 1000, 1000)
+var.boot.chf <- var.boot(rr.chf, 500, 0.99, 1000, 1000)
+
+var.boot.usd <- bind_cols("date" = data$data[501:(500 + dim(var.boot.usd)[1])], var.boot.usd, "rr" = rr.chf[501:(500 + dim(var.hull.usd)[1])])
+var.boot.uah <- bind_cols("date" = data$data[501:(500 + dim(var.boot.uah)[1])], var.boot.uah, "rr" = rr.chf[501:(500 + dim(var.hull.uah)[1])])
+var.boot.chf <- bind_cols("date" = data$data[501:(500 + dim(var.boot.chf)[1])], var.boot.chf, "rr" = rr.chf[501:(500 + dim(var.hull.chf)[1])])
+
+a <- var.boot.usd %>%
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = var, col = "var")) +
+  geom_line(aes(y = es, col = "es")) + 
+  ggtitle(label = "USD")
+
+b <- var.boot.uah %>%
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = var, col = "var")) +
+  geom_line(aes(y = es, col = "es")) + 
+  ggtitle(label = "UAH")
+
+c <- var.boot.chf %>%
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = var, col = "var")) +
+  geom_line(aes(y = es, col = "es")) + 
+  ggtitle(label = "CHF")
+
+grid.arrange(a, b, ncol = 2)
+```
+
+```{r echo=FALSE, fig.align='center', fig.height=4, fig.width=5}
+c
+```
+W tej metodzie Wyniki są bardzo zbliżone do klasycznej metody historycznej. Nie jest to zdziwieniem, ze względu na to, że jest to tylko modyfikacja tej metody.  
+Tak jak poprzednio było wspomniane- różnice między metodami będą lepiej zobrazowane w podsumowaniu.  
+Ponownie też, poniżej znajduje się porównanie VAR'ów dla wszyskich trzech walut.
+
+
+```{r echo=FALSE}
+var.boot.usd %>%
+  ggplot(aes(x = date)) + 
+  geom_line(aes(y = var.boot.usd$var, col = "USD")) + 
+  geom_line(aes(y = var.boot.uah$var, col = "UAH")) + 
+  geom_line(aes(y = var.boot.chf$var, col = "CHF")) + 
+  ggtitle(label = "Porównanie VAR")
+```
+  
+#Porównianie VAR/ES 
+ 
+```{r echo=FALSE, fig.align='center', fig.height=5, fig.width=12, message=FALSE, warning=FALSE}
+a <- var.boot.usd %>%
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = var.hist.usd, col = "hist")) + 
+  geom_line(aes(y = var.hull.usd$var, col = "hull")) + 
+  geom_line(aes(y = var.boot.usd$var, col = "boot")) + 
+  ggtitle(label = "USD")
+
+b <- var.boot.uah %>%
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = var.hist.uah, col = "hist")) + 
+  geom_line(aes(y = var.hull.uah$var, col = "hull")) + 
+  geom_line(aes(y = var.boot.uah$var, col = "boot")) + 
+  ggtitle(label = "UAH")
+
+c <- var.boot.chf %>%
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = var.hist.chf, col = "hist")) + 
+  geom_line(aes(y = var.hull.chf$var, col = "hull")) + 
+  geom_line(aes(y = var.boot.chf$var, col = "boot")) + 
+  ggtitle(label = "CHF")
+  
+grid.arrange(a, b, ncol = 2)
+```
+
+```{r echo=FALSE, fig.align='center', fig.height=4, fig.width=5}
+c
+```
+
+Widać dokładnie że metody historyczna oraz bootstrap'owa dają bardzo podobne wyniki. Metoda uwględniająca wagi daje już zupełnie inne wyniki. Skuteczność metod sprawdzona zostanie za pomocą dwóch testów w następnej części pracy.  
+Tak jak wcześniej było mówione hrywna ukraińska jest najbardziej ryzykowną walutą do inwestowania. Ponownie, nie jest to zaskoczeniem. Wzięta została do pracy włąśnie z powodu słabej pozycji na rynku.
+
+
+#Backtesting  
+
+Poniżej pokazane są funkcje służące do przeprowadzania testów kolejno kupca oraz wartości rzeczywistych.  
+```{r}
+kupiec.bt <- function(rr, var, window = 500)
+{
+  kbt <- sapply(1:(length(var)), function(i) sum(var[i] < rr[(i):(i+ window - 1)]))
+  k <- table(kbt)
+  s <- sum(k[which(as.numeric(names(k)) < 10 & as.numeric(names(k)) > 0)])/length(var)
+  return(s)
+}
+
+realvalue.bt <- function(rr, var, window = 500)
+{
+  sum(rr[(window + 1):length(rr)] < var)/length(rr[(window + 1):length(rr)])
+}
+```
+
+```{r echo=FALSE}
+kupiec.usd <- data.frame(var.hist.usd, var.hull.usd$var, var.boot.usd$var)
+kupiec.usd <- apply(kupiec.usd, 2, kupiec.bt, rr = rr.usd)
+kupiec.usd <- t(as.matrix(kupiec.usd))
+colnames(kupiec.usd) <- c("hist", "hull", "boot")
+
+kupiec.uah <- data.frame(var.hist.uah, var.hull.uah$var, var.boot.uah$var)
+kupiec.uah <- apply(kupiec.uah, 2, kupiec.bt, rr = rr.uah)
+kupiec.uah <- t(as.matrix(kupiec.uah))
+colnames(kupiec.uah) <- c("hist", "hull", "boot")
+
+kupiec.chf <- data.frame(var.hist.chf, var.hull.chf$var, var.boot.chf$var)
+kupiec.chf <- apply(kupiec.chf, 2, kupiec.bt, rr = rr.chf)
+kupiec.chf <- t(as.matrix(kupiec.chf))
+colnames(kupiec.chf) <- c("hist", "hull", "boot")
+
+kupiec.df <- rbind(kupiec.usd, kupiec.uah, kupiec.chf)
+rownames(kupiec.df) <- c("USD", "UAH", "CHF")
+
+kupiec.df %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("stripped", "hover")) %>%
+  add_header_above(c("Testkupca" = 4, " " = 0))
+```
+
+
+
+```{r echo=FALSE}
+realvalue.usd <- data.frame(var.hist.usd, var.hull.usd$var, var.boot.usd$var)
+realvalue.usd <- apply(realvalue.usd, 2, realvalue.bt, rr = rr.usd)
+realvalue.usd <- t(as.matrix(realvalue.usd))
+colnames(realvalue.usd) <- c("hist", "hull", "boot")
+
+realvalue.uah <- data.frame(var.hist.uah, var.hull.uah$var, var.boot.uah$var)
+realvalue.uah <- apply(realvalue.uah, 2, realvalue.bt, rr = rr.uah)
+realvalue.uah <- t(as.matrix(realvalue.uah))
+colnames(realvalue.uah) <- c("hist", "hull", "boot")
+
+realvalue.chf <- data.frame(var.hist.chf, var.hull.chf$var, var.boot.chf$var)
+realvalue.chf <- apply(realvalue.chf, 2, realvalue.bt, rr = rr.chf)
+realvalue.chf <- t(as.matrix(realvalue.chf))
+colnames(realvalue.chf) <- c("hist", "hull", "boot")
+
+realvalue.df <- rbind(realvalue.usd, realvalue.uah, realvalue.chf)
+rownames(realvalue.df) <- c("USD", "UAH", "CHF")
+
+realvalue.df %>%
+  kable() %>%
+  kable_styling(bootstrap_options = c("stripped", "hover")) %>%
+  add_header_above(c("Test wartości rzeczywistych" = 4, " " = 0))
+```  
+Im wynikom bliżej do wartości $1$ tym dana metoda jest bardziej skuteczna.  
+  
+
+Wyniki dla testu wartości rzeczywistych oscylujące mniej więcej w okolicach 99% są bardzo dobrym wynikiem.  
+W teście kupca wartości dla metod historycznych oraz bootstrap'owych wynoszą 1 co jest wynikiem spodziewanym- sposób w jaki działa ten test nie pozwala na inny rezultat. Dla meotdy hull'a natomiast test kupca sugerowałby stosunkowo słabe dopasowanie. Test wartości rzeczywistych jednak wskazuje na to, że metoda wg hull'a działa nienajgorzej 
 
 
 

@@ -25,3 +25,8 @@ plot(rr, type = "l")
 lines(scen, col = "red")
 
 plot(scen, type = "l")
+
+
+a <- ewma(rr)
+plot(a, type = "l")
+lines(a, col = "red")

@@ -29,6 +29,14 @@ table(a)
 
 
 
-sum(rr[501:length(rr)] > vvar)
+sum(rr[501:length(rr)] < vvar)/length(rr[500:length(rr)])
 length(rr[500:length(rr)])
 1763-500
+realvalue.bt(rr, vvar)
+
+aaa <- data.frame(vvar, pull(df[, 2]), xd[, 1])
+
+apply(aaa, 2, kupiec.bt, rr = rr)
+apply(aaa, 2, realvalue.bt, rr = rr)
+
+kupiec.bt(rr = rr, xd[, 1])
